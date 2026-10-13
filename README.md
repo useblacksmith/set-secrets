@@ -28,11 +28,18 @@ New [code]smith turns pick up the latest value when they start.
 # Usage
 
 ```yaml
+- id: mint
+  run: |
+    token=$(mint-my-token)
+    echo "::add-mask::$token"
+    echo "token=$token" >> "$GITHUB_OUTPUT"
 - uses: useblacksmith/codesmith-env@v0.1
   with:
     name: MY_TOKEN
     value: ${{ steps.mint.outputs.token }}
 ```
+
+Mask the value in the step that produces it, as above. GitHub logs action inputs before this action runs, so its own masking comes too late to hide an unmasked step output. Values from `secrets.*` are already masked.
 
 ## Inputs
 

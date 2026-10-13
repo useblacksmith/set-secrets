@@ -26,8 +26,14 @@ runs:
       run: |
         set -euo pipefail
 
+        if [[ "$VALUE" == *$'\n'* || "$VALUE" == *$'\r'* ]]; then
+          echo "::error::value must be a single line"
+          exit 1
+        fi
         if [ -n "$VALUE" ]; then
-          echo "::add-mask::$VALUE"
+          # Escape workflow-command data so the runner registers the literal value.
+          masked=${VALUE//%/%25}
+          echo "::add-mask::$masked"
         fi
         if [ -z "${BLACKSMITH_STICKYDISK_TOKEN:-}" ]; then
           echo "::error::useblacksmith/codesmith-env only works on Blacksmith Linux runners (runs-on: blacksmith-*)"
@@ -47,7 +53,7 @@ runs:
         trap 'rm -rf "$tmp"' EXIT
         chmod 700 "$tmp"
         printf 'Authorization: Bearer %s\n' "$BLACKSMITH_STICKYDISK_TOKEN" > "$tmp/headers"
-        jq -cn --arg value "$VALUE" '{value: $value}' > "$tmp/body"
+        jq -cn '{value: env.VALUE}' > "$tmp/body"
 
         status=$(curl -sS --retry 3 --retry-connrefused --max-time 30 \
           -o "$tmp/response" -w '%{http_code}' \
