@@ -96,7 +96,9 @@ runs:
         printf 'Authorization: Bearer %s\n' "$token" > "$tmp/headers"
         for i in "${!names[@]}"; do
           printf '%s\0%s\0' "${names[$i]}" "${values[$i]}"
-        done | jq -Rsc 'split("\u0000")[:-1] as $f | {vars: [range(0; $f | length; 2) | {key: $f[.], value: $f[. + 1]}] | from_entries}' > "$tmp/body"
+        done | jq -Rsc --arg workflow_ref "${GITHUB_WORKFLOW_REF:-}" \
+          'split("\u0000")[:-1] as $f | {vars: [range(0; $f | length; 2) | {key: $f[.], value: $f[. + 1]}] | from_entries}
+            + (if $workflow_ref == "" then {} else {workflow_ref: $workflow_ref} end)' > "$tmp/body"
 
         status=$(curl -sS --retry 3 --retry-connrefused --max-time 30 \
           -o "$tmp/response" -w '%{http_code}' \
