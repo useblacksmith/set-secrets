@@ -104,8 +104,7 @@ runs:
           exit 1
         fi
 
-        if ! repository=$(jq -er '.repository | strings' "$tmp/response" 2>/dev/null) \
-          || ! created=$(jq -ec '.created | select(type == "array" and all(type == "string"))' "$tmp/response" 2>/dev/null) \
+        if ! created=$(jq -ec '.created | select(type == "array" and all(type == "string"))' "$tmp/response" 2>/dev/null) \
           || ! updated=$(jq -ec '.updated | select(type == "array" and all(type == "string"))' "$tmp/response" 2>/dev/null); then
           echo "::error::Unexpected response from the [code]smith env API (HTTP $status)"
           exit 1
@@ -113,4 +112,4 @@ runs:
         echo "created=$created" >> "$GITHUB_OUTPUT"
         echo "updated=$updated" >> "$GITHUB_OUTPUT"
         summary='if length == 0 then "none" else join(", ") end'
-        echo "Set [code]smith env vars for $repository: created $(jq -r "$summary" <<< "$created"), updated $(jq -r "$summary" <<< "$updated")"
+        echo "Set [code]smith env vars: created $(jq -r "$summary" <<< "$created"), updated $(jq -r "$summary" <<< "$updated")"

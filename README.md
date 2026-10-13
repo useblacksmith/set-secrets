@@ -17,9 +17,9 @@ A GitHub Action that sets [code]smith sandbox env vars from a CI job. Use it to 
 
 The action runs on a Blacksmith runner and authenticates with the token Blacksmith gives every job. No secrets or extra permissions are needed in your workflow.
 
-Blacksmith looks up which repository the job runs in. It then writes each value to a **Team** env var that is:
+Each value goes to a **Team** env var that is:
 
-- **scoped to that repository only.** [code]smith sessions in other repositories never see it.
+- **available in every repository.** [code]smith sessions in all of your organization's repositories see it. For a value only one repository should use, give it a name of its own, such as `API_CODEARTIFACT_TOKEN`.
 - **sensitive.** The value is write-only. Nobody can read it back in the dashboard or API.
 - **created on first use and replaced on later runs.** The env var has no expiry. Refresh it on a schedule shorter than the credential's lifetime.
 
@@ -61,7 +61,7 @@ Read them with `fromJSON`, e.g. `contains(fromJSON(steps.set.outputs.created), '
 
 # Example: AWS CodeArtifact
 
-CodeArtifact tokens last at most 12 hours. This workflow mints one every 6 hours with the same OIDC role your CI already uses, then hands it to [code]smith. Sandboxes in this repository can then install private packages.
+CodeArtifact tokens last at most 12 hours. This workflow mints one every 6 hours with the same OIDC role your CI already uses, then hands it to [code]smith.
 
 ```yaml
 name: Refresh [code]smith CodeArtifact token
@@ -103,14 +103,15 @@ jobs:
             UV_INDEX_CODEARTIFACT_PASSWORD=${{ steps.codeartifact.outputs.token }}
 ```
 
-Run it once with **Run workflow** so the env vars exist before the first schedule fires. Values that never change, such as `UV_INDEX_CODEARTIFACT_USERNAME=aws`, can be added once in [code]smith settings.
+Run it once with **Run workflow** so the env vars exist before the first schedule fires. Sandboxes in every repository of your organization can then install private packages. Values that never change, such as `UV_INDEX_CODEARTIFACT_USERNAME=aws`, can be added once in [code]smith settings.
 
 If your IAM role's trust policy only allows certain branches or events, it must allow this workflow. Scheduled runs use the default branch, so their OIDC subject is `repo:<owner>/<repo>:ref:refs/heads/<default-branch>`.
 
 # Security
 
-- Jobs from fork pull requests are refused. Any other job on a Blacksmith runner in a repository, including a `pull_request` job from a branch of that repository, can replace that repository's env vars. Call this action only from trusted triggers such as `schedule`, `workflow_dispatch` or `push` to your default branch.
-- The action can't touch other repositories' env vars, personal env vars, or a Team env var shared by several repositories.
+- Only jobs triggered by your repository's own code can set env vars, such as `push`, `schedule` and `workflow_dispatch`. Every pull request event is refused, including pull requests from branches of the same repository, as are Dependabot jobs.
+- Any such job in any repository of your organization can replace the env vars this action sets. Review who can push to your repositories' default branches and run their workflows.
+- The action can't touch personal env vars or Team env vars scoped to specific repositories.
 - Values are encrypted at rest. The action masks every value in the job log, and its errors name the line number, never the line.
 
 # Errors
@@ -120,11 +121,9 @@ Any error leaves every env var unchanged.
 | HTTP status | Meaning                                                                                                                                  |
 | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | 401         | The job's Blacksmith token is missing or invalid.                                                                                        |
-| 403         | The job has ended, runs code from a fork pull request or from a trigger Blacksmith could not classify, its repository could not be resolved, or its runner was provisioned before this feature shipped. Re-run the job for the last. |
+| 403         | The job has ended, was triggered by a pull request event or by Dependabot, its trigger was not yet recorded, or its runner was provisioned before this feature shipped. Re-run the job for the last two. |
 | 404         | The action is not enabled for your organization.                                                                                         |
-| 409         | A Team env var with one of these names is shared by several repositories. Scope it to this repository alone in [code]smith settings.     |
 | 422         | An invalid name or value, an existing env var that is not marked sensitive, or the Team env var limit would be exceeded.                 |
-| 503         | Blacksmith could not resolve the repository's owner. Retry later.                                                                        |
 
 # License
 
