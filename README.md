@@ -33,7 +33,7 @@ All env vars in one call are written together: if any is refused, none is change
     token=$(mint-my-token)
     echo "::add-mask::${token//%/%25}"
     echo "token=$token" >> "$GITHUB_OUTPUT"
-- uses: useblacksmith/codesmith-set-secrets@v0.1
+- uses: useblacksmith/set-secrets@v0.1
   with:
     secrets: |
       MY_TOKEN=${{ steps.mint.outputs.token }}
@@ -96,7 +96,7 @@ jobs:
           echo "token=$token" >> "$GITHUB_OUTPUT"
 
       # uv reads its index credentials from a separate variable.
-      - uses: useblacksmith/codesmith-set-secrets@v0.1
+      - uses: useblacksmith/set-secrets@v0.1
         with:
           secrets: |
             CODEARTIFACT_AUTH_TOKEN=${{ steps.codeartifact.outputs.token }}

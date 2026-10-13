@@ -70,7 +70,7 @@ runs:
           exit 1
         fi
         if [ -z "${BLACKSMITH_STICKYDISK_TOKEN:-}" ]; then
-          echo "::error::useblacksmith/codesmith-set-secrets only works on Blacksmith Linux runners (runs-on: blacksmith-*)"
+          echo "::error::useblacksmith/set-secrets only works on Blacksmith Linux runners (runs-on: blacksmith-*)"
           exit 1
         fi
         if ! command -v jq >/dev/null; then
