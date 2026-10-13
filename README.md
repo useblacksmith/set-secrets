@@ -31,7 +31,11 @@ New [code]smith turns pick up the latest value when they start.
 - id: mint
   run: |
     token=$(mint-my-token)
-    echo "::add-mask::$token"
+    if [[ "$token" == *$'\n'* || "$token" == *$'\r'* ]]; then
+      echo "::error::token must be a single line"
+      exit 1
+    fi
+    echo "::add-mask::${token//%/%25}"
     echo "token=$token" >> "$GITHUB_OUTPUT"
 - uses: useblacksmith/codesmith-env@v0.1
   with:
