@@ -1,0 +1,113 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release (e.g., v0.1.0)"
+        required: true
+        type: string
+      update-floating:
+        description: "Move the floating tag (v0.1 for 0.x releases, v1 for 1.x and later)"
+        required: true
+        type: boolean
+        default: true
+
+concurrency: release
+
+jobs:
+  release:
+    runs-on: blacksmith-2vcpu-ubuntu-2404
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Validate version
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$ ]]; then
+            echo "::error::Version must be vX.Y.Z or vX.Y.Z-prerelease, e.g. v0.1.0 or v0.2.0-beta.1"
+            exit 1
+          fi
+          if git rev-parse -q --verify "refs/tags/$VERSION" >/dev/null; then
+            echo "::error::Tag $VERSION already exists"
+            exit 1
+          fi
+
+      - name: Lint action.yml
+        run: |
+          sed -n '/run: |/,$p' action.yml | tail -n +2 | sed 's/^        //' > "$RUNNER_TEMP/action.sh"
+          bash -n "$RUNNER_TEMP/action.sh"
+
+      - name: Configure git
+        env:
+          GIT_USER: ${{ github.actor }}
+        run: |
+          git config user.name "$GIT_USER"
+          git config user.email "${GIT_USER}@users.noreply.github.com"
+
+      - name: Create version tag
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          git tag -a "$VERSION" -m "Release $VERSION"
+          git push origin "$VERSION"
+
+      - name: Move floating tag
+        id: floating
+        if: inputs.update-floating
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          # Prereleases never move a floating tag, so @v0.1 or @v1 users do not pick up unstable code.
+          if [[ "$VERSION" == *-* ]]; then
+            echo "Skipping floating tag: $VERSION is a prerelease"
+            exit 0
+          fi
+          # In 0.x a minor bump may break callers, so 0.x floats on major.minor (v0.1); 1.x and later float on major (v1).
+          if [[ "$VERSION" == v0.* ]]; then
+            floating=$(grep -oE '^v0\.[0-9]+' <<< "$VERSION")
+          else
+            floating=$(grep -oE '^v[0-9]+' <<< "$VERSION")
+          fi
+          git tag -fa "$floating" -m "Update $floating to $VERSION"
+          git push --force origin "refs/tags/$floating"
+          echo "tag=$floating" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          prerelease=()
+          if [[ "$VERSION" == *-* ]]; then
+            prerelease=(--prerelease)
+          fi
+          # versionsort.suffix=- sorts v1.0.0-alpha before v1.0.0, as SemVer does.
+          previous=$(git -c versionsort.suffix=- tag -l 'v*.*.*' --sort=-version:refname | grep -vx "$VERSION" | head -n 1 || true)
+          notes_start=()
+          if [ -n "$previous" ]; then
+            notes_start=(--notes-start-tag "$previous")
+          fi
+          gh release create "$VERSION" --title "$VERSION" --generate-notes "${notes_start[@]}" "${prerelease[@]}"
+
+      - name: Summary
+        env:
+          VERSION: ${{ inputs.version }}
+          FLOATING: ${{ steps.floating.outputs.tag }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          {
+            echo "Released **$VERSION**${FLOATING:+ and moved \`$FLOATING\` to it}."
+            echo '```yaml'
+            [ -n "$FLOATING" ] && echo "- uses: $REPOSITORY@$FLOATING"
+            echo "- uses: $REPOSITORY@$VERSION"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
