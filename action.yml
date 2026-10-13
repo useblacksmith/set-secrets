@@ -1,4 +1,4 @@
-name: "Blacksmith [code]smith Env"
+name: "Blacksmith [code]smith Set Secrets"
 author: Blacksmith
 description: "Sets a [code]smith sandbox env var from a GitHub Actions job running on a Blacksmith runner"
 branding:
@@ -36,7 +36,7 @@ runs:
           echo "::add-mask::$masked"
         fi
         if [ -z "${BLACKSMITH_STICKYDISK_TOKEN:-}" ]; then
-          echo "::error::useblacksmith/codesmith-env only works on Blacksmith Linux runners (runs-on: blacksmith-*)"
+          echo "::error::useblacksmith/codesmith-set-secrets only works on Blacksmith Linux runners (runs-on: blacksmith-*)"
           exit 1
         fi
         if ! [[ "$NAME" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then

@@ -37,7 +37,7 @@ New [code]smith turns pick up the latest value when they start.
     fi
     echo "::add-mask::${token//%/%25}"
     echo "token=$token" >> "$GITHUB_OUTPUT"
-- uses: useblacksmith/codesmith-env@v0.1
+- uses: useblacksmith/codesmith-set-secrets@v0.1
   with:
     name: MY_TOKEN
     value: ${{ steps.mint.outputs.token }}
@@ -94,13 +94,13 @@ jobs:
           echo "::add-mask::$token"
           echo "token=$token" >> "$GITHUB_OUTPUT"
 
-      - uses: useblacksmith/codesmith-env@v0.1
+      - uses: useblacksmith/codesmith-set-secrets@v0.1
         with:
           name: CODEARTIFACT_AUTH_TOKEN
           value: ${{ steps.codeartifact.outputs.token }}
 
       # uv reads its index credentials from separate variables.
-      - uses: useblacksmith/codesmith-env@v0.1
+      - uses: useblacksmith/codesmith-set-secrets@v0.1
         with:
           name: UV_INDEX_CODEARTIFACT_PASSWORD
           value: ${{ steps.codeartifact.outputs.token }}
