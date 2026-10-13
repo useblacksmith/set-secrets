@@ -109,7 +109,7 @@ If your IAM role's trust policy only allows certain branches or events, it must 
 
 # Security
 
-- Any job on a Blacksmith runner in a repository can replace that repository's env vars. Call this action only from trusted triggers such as `schedule`, `workflow_dispatch` or `push` to your default branch. Do not call it from `pull_request` workflows. In public repositories, require approval for workflows from fork pull requests.
+- Jobs from fork pull requests are refused. Any other job on a Blacksmith runner in a repository, including a `pull_request` job from a branch of that repository, can replace that repository's env vars. Call this action only from trusted triggers such as `schedule`, `workflow_dispatch` or `push` to your default branch.
 - The action can't touch other repositories' env vars, personal env vars, or a Team env var shared by several repositories.
 - Values are encrypted at rest. The action masks every value in the job log, and its errors name the line number, never the line.
 
@@ -120,7 +120,7 @@ Any error leaves every env var unchanged.
 | HTTP status | Meaning                                                                                                                                  |
 | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | 401         | The job's Blacksmith token is missing or invalid.                                                                                        |
-| 403         | The job has ended, its repository could not be resolved, or the runner's token cannot be tied to a job. Contact support for the last.    |
+| 403         | The job has ended, runs code from a fork pull request, its repository could not be resolved, or the runner's token cannot be tied to a job. Contact support for the last. |
 | 404         | The action is not enabled for your organization.                                                                                         |
 | 409         | A Team env var with one of these names is shared by several repositories. Scope it to this repository alone in [code]smith settings.     |
 | 422         | An invalid name or value, an existing env var that is not marked sensitive, or the Team env var limit would be exceeded.                 |
