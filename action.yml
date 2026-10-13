@@ -1,0 +1,74 @@
+name: "Blacksmith [code]smith Env"
+author: Blacksmith
+description: "Sets a [code]smith sandbox env var from a GitHub Actions job running on a Blacksmith runner"
+branding:
+  icon: key
+  color: black
+inputs:
+  name:
+    description: "Env var name, e.g. CODEARTIFACT_AUTH_TOKEN"
+    required: true
+  value:
+    description: "Env var value. Single line, up to 8KB. Masked in the job log."
+    required: true
+outputs:
+  created:
+    description: "'true' if this run created the env var, 'false' if it replaced an existing value"
+    value: ${{ steps.set.outputs.created }}
+runs:
+  using: composite
+  steps:
+    - id: set
+      shell: bash
+      env:
+        NAME: ${{ inputs.name }}
+        VALUE: ${{ inputs.value }}
+      run: |
+        set -euo pipefail
+
+        if [ -n "$VALUE" ]; then
+          echo "::add-mask::$VALUE"
+        fi
+        if [ -z "${BLACKSMITH_STICKYDISK_TOKEN:-}" ]; then
+          echo "::error::useblacksmith/codesmith-env only works on Blacksmith Linux runners (runs-on: blacksmith-*)"
+          exit 1
+        fi
+        if ! [[ "$NAME" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
+          echo "::error::'$NAME' is not a valid env var name (letters, digits and underscores, not starting with a digit)"
+          exit 1
+        fi
+        if ! command -v jq >/dev/null; then
+          echo "::error::jq is required on the runner"
+          exit 1
+        fi
+
+        # Token and value go through files, not argv, so other processes cannot read them.
+        tmp=$(mktemp -d)
+        trap 'rm -rf "$tmp"' EXIT
+        chmod 700 "$tmp"
+        printf 'Authorization: Bearer %s\n' "$BLACKSMITH_STICKYDISK_TOKEN" > "$tmp/headers"
+        jq -cn --arg value "$VALUE" '{value: $value}' > "$tmp/body"
+
+        status=$(curl -sS --retry 3 --retry-connrefused --max-time 30 \
+          -o "$tmp/response" -w '%{http_code}' \
+          -X PUT \
+          -H @"$tmp/headers" \
+          -H 'Content-Type: application/json' \
+          -H 'Accept: application/json' \
+          --data-binary @"$tmp/body" \
+          "https://api.blacksmith.sh/api/codesmith/runner/env-vars/$NAME")
+
+        if [ "$status" != 200 ] && [ "$status" != 201 ]; then
+          message=$(jq -r '.message // empty' "$tmp/response" 2>/dev/null || true)
+          echo "::error::Could not set [code]smith env var $NAME (HTTP $status): ${message:-unexpected response}"
+          exit 1
+        fi
+
+        repository=$(jq -r '.repository' "$tmp/response")
+        created=$(jq -r '.created' "$tmp/response")
+        echo "created=$created" >> "$GITHUB_OUTPUT"
+        if [ "$created" = true ]; then
+          echo "Created [code]smith env var $NAME for $repository"
+        else
+          echo "Updated [code]smith env var $NAME for $repository"
+        fi
