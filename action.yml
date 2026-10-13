@@ -1,0 +1,124 @@
+name: "Blacksmith [code]smith Set Secrets"
+author: Blacksmith
+description: "Sets [code]smith sandbox env vars from a GitHub Actions job running on a Blacksmith runner"
+branding:
+  icon: key
+  color: black
+inputs:
+  secrets:
+    description: "One NAME=value per line, up to 10. Values are single-line, up to 8KB each, and masked in the job log."
+    required: true
+outputs:
+  created:
+    description: "JSON array of the env var names this run created"
+    value: ${{ steps.set.outputs.created }}
+  updated:
+    description: "JSON array of the env var names whose value this run replaced"
+    value: ${{ steps.set.outputs.updated }}
+runs:
+  using: composite
+  steps:
+    - id: set
+      shell: bash
+      env:
+        SECRETS: ${{ inputs.secrets }}
+      run: |
+        set -euo pipefail
+
+        # Errors name the line number, never the line: it holds a secret.
+        names=()
+        values=()
+        line_number=0
+        while IFS= read -r line || [ -n "$line" ]; do
+          line_number=$((line_number + 1))
+          line=${line%$'\r'}
+          [[ "$line" =~ ^[[:space:]]*$ ]] && continue
+          # The runner splits workflow commands on CR, so ::add-mask:: would hide only the text before one.
+          if [[ "$line" == *$'\r'* ]]; then
+            echo "::error::secrets line $line_number contains a carriage return; values must be single-line"
+            exit 1
+          fi
+          if [[ "$line" != *=* ]]; then
+            echo "::error::secrets line $line_number must be NAME=value"
+            exit 1
+          fi
+          name=${line%%=*}
+          name=${name#"${name%%[![:space:]]*}"}
+          name=${name%"${name##*[![:space:]]}"}
+          value=${line#*=}
+          value=${value#"${value%%[![:space:]]*}"}
+          value=${value%"${value##*[![:space:]]}"}
+          if [ -n "$value" ]; then
+            # Escape workflow-command data so the runner registers the literal value.
+            echo "::add-mask::${value//%/%25}"
+          fi
+          if ! [[ "$name" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
+            echo "::error::secrets line $line_number: the name is not a valid env var name (letters, digits and underscores, not starting with a digit)"
+            exit 1
+          fi
+          if [ -z "$value" ]; then
+            echo "::error::secrets line $line_number: $name has an empty value"
+            exit 1
+          fi
+          for seen in "${names[@]}"; do
+            if [ "$seen" = "$name" ]; then
+              echo "::error::secrets line $line_number: $name is listed twice"
+              exit 1
+            fi
+          done
+          names+=("$name")
+          values+=("$value")
+        done <<< "$SECRETS"
+
+        if [ "${#names[@]}" -eq 0 ] || [ "${#names[@]}" -gt 10 ]; then
+          echo "::error::secrets must list 1 to 10 NAME=value lines, got ${#names[@]}"
+          exit 1
+        fi
+        # "unset" is the agent's placeholder when the control plane sent no token.
+        token=${BLACKSMITH_MONITORING_TOKEN:-}
+        if [ -z "$token" ] || [ "$token" = unset ]; then
+          echo "::error::useblacksmith/set-secrets only works on Blacksmith runners (runs-on: blacksmith-*)"
+          exit 1
+        fi
+        if ! command -v jq >/dev/null; then
+          echo "::error::jq is required on the runner"
+          exit 1
+        fi
+
+        # The monitoring token is only valid on the control plane that provisioned this runner.
+        backend=${BLACKSMITH_BACKEND_URL:-https://api.blacksmith.sh}
+        backend=${backend%/}
+
+        # The token and values reach curl and jq through files and pipes, not argv, so other processes cannot read them.
+        tmp=$(mktemp -d)
+        trap 'rm -rf "$tmp"' EXIT
+        chmod 700 "$tmp"
+        printf 'Authorization: Bearer %s\n' "$token" > "$tmp/headers"
+        for i in "${!names[@]}"; do
+          printf '%s\0%s\0' "${names[$i]}" "${values[$i]}"
+        done | jq -Rsc 'split("\u0000")[:-1] as $f | {vars: [range(0; $f | length; 2) | {key: $f[.], value: $f[. + 1]}] | from_entries}' > "$tmp/body"
+
+        status=$(curl -sS --retry 3 --retry-connrefused --max-time 30 \
+          -o "$tmp/response" -w '%{http_code}' \
+          -X PUT \
+          -H @"$tmp/headers" \
+          -H 'Content-Type: application/json' \
+          -H 'Accept: application/json' \
+          --data-binary @"$tmp/body" \
+          "$backend/api/codesmith/runner/env-vars")
+
+        if [ "$status" != 200 ]; then
+          message=$(jq -r '.message // empty' "$tmp/response" 2>/dev/null || true)
+          echo "::error::Could not set [code]smith env vars at $backend (HTTP $status): ${message:-unexpected response}"
+          exit 1
+        fi
+
+        if ! created=$(jq -ec '.created | select(type == "array" and all(type == "string"))' "$tmp/response" 2>/dev/null) \
+          || ! updated=$(jq -ec '.updated | select(type == "array" and all(type == "string"))' "$tmp/response" 2>/dev/null); then
+          echo "::error::Unexpected response from the [code]smith env API (HTTP $status)"
+          exit 1
+        fi
+        echo "created=$created" >> "$GITHUB_OUTPUT"
+        echo "updated=$updated" >> "$GITHUB_OUTPUT"
+        summary='if length == 0 then "none" else join(", ") end'
+        echo "Set [code]smith env vars: created $(jq -r "$summary" <<< "$created"), updated $(jq -r "$summary" <<< "$updated")"
