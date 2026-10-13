@@ -80,6 +80,10 @@ runs:
           exit 1
         fi
 
+        # The monitoring token is only valid on the control plane that provisioned this runner.
+        backend=${BLACKSMITH_BACKEND_URL:-https://api.blacksmith.sh}
+        backend=${backend%/}
+
         # The token and values reach curl and jq through files and pipes, not argv, so other processes cannot read them.
         tmp=$(mktemp -d)
         trap 'rm -rf "$tmp"' EXIT
@@ -96,7 +100,7 @@ runs:
           -H 'Content-Type: application/json' \
           -H 'Accept: application/json' \
           --data-binary @"$tmp/body" \
-          "https://api.blacksmith.sh/api/codesmith/runner/env-vars")
+          "$backend/api/codesmith/runner/env-vars")
 
         if [ "$status" != 200 ]; then
           message=$(jq -r '.message // empty' "$tmp/response" 2>/dev/null || true)
