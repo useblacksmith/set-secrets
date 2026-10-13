@@ -33,6 +33,11 @@ runs:
           line_number=$((line_number + 1))
           line=${line%$'\r'}
           [[ "$line" =~ ^[[:space:]]*$ ]] && continue
+          # The runner splits workflow commands on CR, so ::add-mask:: would hide only the text before one.
+          if [[ "$line" == *$'\r'* ]]; then
+            echo "::error::secrets line $line_number contains a carriage return; values must be single-line"
+            exit 1
+          fi
           if [[ "$line" != *=* ]]; then
             echo "::error::secrets line $line_number must be NAME=value"
             exit 1

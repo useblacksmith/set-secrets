@@ -8,10 +8,10 @@
   </picture>
 </p>
 
-A GitHub Action that sets [code]smith sandbox env vars from a CI job. Use it to hand [code]smith short-lived credentials your CI already mints, such as an AWS CodeArtifact token from an OIDC role, instead of storing a long-lived key in [code]smith settings.
+> [!WARNING]
+> **Alpha.** This action and the API behind it may change without notice. It must be enabled for your organization: contact Blacksmith support to turn it on.
 
-> [!NOTE]
-> Preview (v0.1): this action must be enabled for your organization. Contact Blacksmith support to turn it on.
+A GitHub Action that sets [code]smith sandbox env vars from a CI job. Use it to hand [code]smith short-lived credentials your CI already mints, such as an AWS CodeArtifact token from an OIDC role, instead of storing a long-lived key in [code]smith settings.
 
 # How it works
 
