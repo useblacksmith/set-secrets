@@ -69,8 +69,10 @@ runs:
           echo "::error::secrets must list 1 to 10 NAME=value lines, got ${#names[@]}"
           exit 1
         fi
-        if [ -z "${BLACKSMITH_STICKYDISK_TOKEN:-}" ]; then
-          echo "::error::useblacksmith/set-secrets only works on Blacksmith Linux runners (runs-on: blacksmith-*)"
+        # "unset" is the agent's placeholder when the control plane sent no token.
+        token=${BLACKSMITH_MONITORING_TOKEN:-}
+        if [ -z "$token" ] || [ "$token" = unset ]; then
+          echo "::error::useblacksmith/set-secrets only works on Blacksmith runners (runs-on: blacksmith-*)"
           exit 1
         fi
         if ! command -v jq >/dev/null; then
@@ -82,7 +84,7 @@ runs:
         tmp=$(mktemp -d)
         trap 'rm -rf "$tmp"' EXIT
         chmod 700 "$tmp"
-        printf 'Authorization: Bearer %s\n' "$BLACKSMITH_STICKYDISK_TOKEN" > "$tmp/headers"
+        printf 'Authorization: Bearer %s\n' "$token" > "$tmp/headers"
         for i in "${!names[@]}"; do
           printf '%s\0%s\0' "${names[$i]}" "${values[$i]}"
         done | jq -Rsc 'split("\u0000")[:-1] as $f | {vars: [range(0; $f | length; 2) | {key: $f[.], value: $f[. + 1]}] | from_entries}' > "$tmp/body"

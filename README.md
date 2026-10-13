@@ -120,7 +120,7 @@ Any error leaves every env var unchanged.
 | HTTP status | Meaning                                                                                                                                  |
 | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | 401         | The job's Blacksmith token is missing or invalid.                                                                                        |
-| 403         | The job has ended, runs code from a fork pull request, its repository could not be resolved, or the runner's token cannot be tied to a job. Contact support for the last. |
+| 403         | The job has ended, runs code from a fork pull request, its repository could not be resolved, or its runner was provisioned before this feature shipped. Re-run the job for the last. |
 | 404         | The action is not enabled for your organization.                                                                                         |
 | 409         | A Team env var with one of these names is shared by several repositories. Scope it to this repository alone in [code]smith settings.     |
 | 422         | An invalid name or value, an existing env var that is not marked sensitive, or the Team env var limit would be exceeded.                 |
