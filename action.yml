@@ -70,8 +70,11 @@ runs:
           exit 1
         fi
 
-        repository=$(jq -r '.repository' "$tmp/response")
-        created=$(jq -r '.created' "$tmp/response")
+        if ! repository=$(jq -er '.repository | strings' "$tmp/response" 2>/dev/null) \
+          || ! created=$(jq -er '.created | if type == "boolean" then tostring else empty end' "$tmp/response" 2>/dev/null); then
+          echo "::error::Unexpected response from the [code]smith env API (HTTP $status)"
+          exit 1
+        fi
         echo "created=$created" >> "$GITHUB_OUTPUT"
         if [ "$created" = true ]; then
           echo "Created [code]smith env var $NAME for $repository"
