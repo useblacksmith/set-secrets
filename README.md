@@ -22,6 +22,7 @@ Each value goes to a **Team** env var that is:
 - **available in every repository.** [code]smith sessions in all of your organization's repositories see it. For a value only one repository should use, give it a name of its own, such as `API_CODEARTIFACT_TOKEN`.
 - **sensitive.** The value is write-only. Nobody can read it back in the dashboard or API.
 - **created on first use and replaced on later runs.** The env var has no expiry. Refresh it on a schedule shorter than the credential's lifetime.
+- **managed by CI.** [code]smith settings link the env var to the workflow that set it and block edits there, since the next run would overwrite them. You can still delete it. [code]smith sessions also see the workflow, so they can run it again when a value has expired.
 
 All env vars in one call are written together: if any is refused, none is changed. New [code]smith turns pick up the latest values when they start.
 
