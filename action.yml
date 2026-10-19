@@ -1,6 +1,6 @@
 name: "Blacksmith [code]smith Set Secrets"
 author: Blacksmith
-description: "Sets [code]smith sandbox env vars from a GitHub Actions job running on a Blacksmith runner"
+description: "Sets [code]smith and Proof sandbox env vars from a GitHub Actions job running on a Blacksmith runner"
 branding:
   icon: key
   color: black

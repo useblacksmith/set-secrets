@@ -11,7 +11,7 @@
 > [!WARNING]
 > **Alpha.** This action and the API behind it may change without notice. It must be enabled for your organization: contact Blacksmith support to turn it on.
 
-A GitHub Action that sets [code]smith sandbox env vars from a CI job. Use it to hand [code]smith short-lived credentials your CI already mints, such as an AWS CodeArtifact token from an OIDC role, instead of storing a long-lived key in [code]smith settings.
+A GitHub Action that sets env vars for [code]smith and Proof sandboxes from a CI job. Use it to hand them short-lived credentials your CI already mints, such as an AWS CodeArtifact token from an OIDC role, instead of storing a long-lived key in [code]smith settings.
 
 # How it works
 
@@ -19,12 +19,12 @@ The action runs on a Blacksmith runner and authenticates with the token Blacksmi
 
 Each value goes to a **Team** env var that is:
 
-- **available in every repository.** [code]smith sessions in all of your organization's repositories see it. For a value only one repository should use, give it a name of its own, such as `API_CODEARTIFACT_TOKEN`.
+- **available in every repository.** [code]smith and Proof sessions in all of your organization's repositories see it. For a value only one repository should use, give it a name of its own, such as `API_CODEARTIFACT_TOKEN`.
 - **sensitive.** The value is write-only. Nobody can read it back in the dashboard or API.
 - **created on first use and replaced on later runs.** The env var has no expiry. Refresh it on a schedule shorter than the credential's lifetime.
 - **managed by CI.** [code]smith settings link the env var to the workflow that set it and block edits there, since the next run would overwrite them. You can still delete it. [code]smith sessions also see the workflow, so they can run it again when a value has expired.
 
-All env vars in one call are written together: if any is refused, none is changed. New [code]smith turns pick up the latest values when they start.
+All env vars in one call are written together: if any is refused, none is changed. New [code]smith turns and Proof runs pick up the latest values when they start.
 
 # Usage
 
@@ -62,7 +62,7 @@ Read them with `fromJSON`, e.g. `contains(fromJSON(steps.set.outputs.created), '
 
 # Example: AWS CodeArtifact
 
-CodeArtifact tokens last at most 12 hours. This workflow mints one every 6 hours with the same OIDC role your CI already uses, then hands it to [code]smith.
+CodeArtifact tokens last at most 12 hours. This workflow mints one every 6 hours with the same OIDC role your CI already uses, then hands it to [code]smith and Proof.
 
 ```yaml
 name: Refresh [code]smith CodeArtifact token
