@@ -56,12 +56,16 @@ Read outputs with `fromJSON`, e.g. `contains(fromJSON(steps.set.outputs.created)
 CodeArtifact tokens last up to 12 hours. This workflow mints one every 6 hours with your CI's OIDC role and hands it to Blacksmith.
 
 ```yaml
+# .github/workflows/refresh-codeartifact-token.yml
 name: Refresh CodeArtifact token
 
 on:
   schedule:
     - cron: "0 */6 * * *"
   workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/refresh-codeartifact-token.yml
 
 permissions:
   id-token: write
@@ -81,11 +85,12 @@ jobs:
           echo "::add-mask::$token"
           echo "token=$token" >> "$GITHUB_OUTPUT"
       - uses: useblacksmith/set-secrets@v0.1
+        if: github.event_name != 'pull_request'
         with:
           secrets: CODEARTIFACT_AUTH_TOKEN=${{ steps.mint.outputs.token }}
 ```
 
-Run it once with **Run workflow** so the token exists before the first scheduled run. Your role's trust policy must allow the default branch, which scheduled runs use.
+Pull requests that edit the workflow run it to check that minting works, then skip setting the secret, since the action refuses pull request events. After merging, run it once with **Run workflow** so the token exists before the first scheduled run. Your role's trust policy must allow the default branch, which scheduled runs use. Pull request runs also need it to allow `repo:<owner>/<repo>:pull_request`, but that lets any same-repository pull request run its own code with the role and obtain a CodeArtifact token before review. Only add it if everyone who can open such pull requests may hold that token, or point pull requests at a separate role with read-only access. Otherwise, drop the `pull_request` trigger.
 
 # Security
 
