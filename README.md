@@ -62,10 +62,10 @@ Read them with `fromJSON`, e.g. `contains(fromJSON(steps.set.outputs.created), '
 
 # Example: AWS CodeArtifact
 
-CodeArtifact tokens last at most 12 hours. This workflow mints one every 6 hours with the same OIDC role your CI already uses, then hands it to [code]smith and Proof.
+CodeArtifact tokens last up to 12 hours. This workflow mints one every 6 hours with your CI's OIDC role and hands it to [code]smith and Proof.
 
 ```yaml
-name: Refresh [code]smith CodeArtifact token
+name: Refresh CodeArtifact token
 
 on:
   schedule:
@@ -73,10 +73,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  id-token: write # for AWS OIDC
-  contents: read
-
-concurrency: codesmith-codeartifact-token
+  id-token: write
 
 jobs:
   refresh:
@@ -86,27 +83,18 @@ jobs:
         with:
           role-to-assume: arn:aws:iam::<account-id>:role/<ci-role>
           aws-region: <region>
-
-      - id: codeartifact
+      - id: mint
         run: |
-          token=$(aws codeartifact get-authorization-token \
-            --domain <domain> --domain-owner <account-id> \
-            --duration-seconds 43200 \
-            --query authorizationToken --output text)
+          token=$(aws codeartifact get-authorization-token --domain <domain> \
+            --domain-owner <account-id> --query authorizationToken --output text)
           echo "::add-mask::$token"
           echo "token=$token" >> "$GITHUB_OUTPUT"
-
-      # uv reads its index credentials from a separate variable.
       - uses: useblacksmith/set-secrets@v0.1
         with:
-          secrets: |
-            CODEARTIFACT_AUTH_TOKEN=${{ steps.codeartifact.outputs.token }}
-            UV_INDEX_CODEARTIFACT_PASSWORD=${{ steps.codeartifact.outputs.token }}
+          secrets: CODEARTIFACT_AUTH_TOKEN=${{ steps.mint.outputs.token }}
 ```
 
-Run it once with **Run workflow** so the env vars exist before the first schedule fires. Sandboxes in every repository of your organization can then install private packages. Values that never change, such as `UV_INDEX_CODEARTIFACT_USERNAME=aws`, can be added once in [code]smith settings.
-
-If your IAM role's trust policy only allows certain branches or events, it must allow this workflow. Scheduled runs use the default branch, so their OIDC subject is `repo:<owner>/<repo>:ref:refs/heads/<default-branch>`.
+Run it once with **Run workflow** so the token exists before the first scheduled run. Your role's trust policy must allow the default branch, which scheduled runs use.
 
 # Security
 
@@ -114,17 +102,6 @@ If your IAM role's trust policy only allows certain branches or events, it must 
 - Any such job in any repository of your organization can replace the env vars this action sets. Review who can push to your repositories' default branches and run their workflows.
 - The action can't touch personal env vars or Team env vars scoped to specific repositories.
 - Values are encrypted at rest. The action masks every value in the job log, and its errors name the line number, never the line.
-
-# Errors
-
-Any error leaves every env var unchanged.
-
-| HTTP status | Meaning                                                                                                                                  |
-| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| 401         | The job's Blacksmith token is missing or invalid.                                                                                        |
-| 403         | The job has ended, was triggered by a pull request event or by Dependabot, its trigger was not yet recorded, or its runner was provisioned before this feature shipped. Re-run the job for the last two. |
-| 404         | The action is not enabled for your organization.                                                                                         |
-| 422         | An invalid name or value, an existing env var that is not marked sensitive, or the Team env var limit would be exceeded.                 |
 
 # License
 
