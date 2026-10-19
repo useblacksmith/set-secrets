@@ -11,18 +11,18 @@
 > [!WARNING]
 > **Alpha.** This action and its API may change without notice. Contact Blacksmith support to enable it for your organization.
 
-A GitHub Action that sets Blacksmith secrets from a CI job. Hand Blacksmith short-lived credentials your CI already mints, such as an AWS CodeArtifact token from an OIDC role, instead of storing a long-lived key in Blacksmith settings. Blacksmith sandboxes, such as [code]smith and Proof sessions, receive them as env vars.
+A GitHub Action that sets Blacksmith secrets from a CI job. Hand Blacksmith short-lived credentials your CI already mints, such as an AWS CodeArtifact token from an OIDC role, instead of storing a long-lived key in Blacksmith settings. [code]smith and Proof sessions get these secrets as env vars.
 
 # How it works
 
 The action runs on a Blacksmith runner and authenticates with the token Blacksmith gives every job, so your workflow needs no secrets or extra permissions. Each value becomes a **Team** secret that is:
 
-- **Org-wide.** Sandboxes in every repository see it. Give a value meant for one repository its own name, such as `API_CODEARTIFACT_TOKEN`.
+- **Org-wide.** [code]smith and Proof sessions in every repository see it. Give a value meant for one repository its own name, such as `API_CODEARTIFACT_TOKEN`.
 - **Sensitive.** It is write-only: nobody can read it back in the dashboard or API.
 - **Created or replaced on each run, with no expiry.** Refresh it more often than the credential expires.
-- **Managed by CI.** Blacksmith settings link it to the workflow that set it and block edits, since the next run would overwrite them. You can still delete it. Sessions see the workflow too, so they can rerun it when a value expires.
+- **Managed by CI.** Blacksmith settings link it to the workflow that set it and block edits, since the next run would overwrite them. You can still delete it. [code]smith sessions see the workflow too, so they can rerun it when a value expires.
 
-Each call is all-or-nothing: if any secret is refused, none changes. New sessions and turns pick up the latest values when they start.
+Each call is all-or-nothing: if any secret is refused, none changes. New [code]smith turns and Proof runs pick up the latest values when they start.
 
 # Usage
 
