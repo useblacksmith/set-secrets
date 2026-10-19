@@ -90,7 +90,7 @@ jobs:
           secrets: CODEARTIFACT_AUTH_TOKEN=${{ steps.mint.outputs.token }}
 ```
 
-Pull requests that edit the workflow run it to check that minting works, then skip setting the secret, since the action refuses pull request events. After merging, run it once with **Run workflow** so the token exists before the first scheduled run. Your role's trust policy must allow both the default branch, which scheduled runs use, and pull requests, whose OIDC subject is `repo:<owner>/<repo>:pull_request`.
+Pull requests that edit the workflow run it to check that minting works, then skip setting the secret, since the action refuses pull request events. After merging, run it once with **Run workflow** so the token exists before the first scheduled run. Your role's trust policy must allow the default branch, which scheduled runs use. Pull request runs also need it to allow `repo:<owner>/<repo>:pull_request`, but that lets any same-repository pull request run its own code with the role and obtain a CodeArtifact token before review. Only add it if everyone who can open such pull requests may hold that token, or point pull requests at a separate role with read-only access. Otherwise, drop the `pull_request` trigger.
 
 # Security
 
