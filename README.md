@@ -90,7 +90,7 @@ Run it once with **Run workflow** so the token exists before the first scheduled
 # Security
 
 - Only jobs triggered by your repository's own code, such as `push`, `schedule` and `workflow_dispatch`, can set secrets.
-- Jobs triggered by a pull request, its reviews or review comments can't, even when the branch is in the same repository, since that code may come from a fork or be unreviewed.
+- Jobs triggered by a pull request, its reviews or review comments can't, even when the branch is in the same repository, since that code may come from a fork or be unreviewed. The step fails, so a workflow that also runs on pull requests should skip it with `if: ${{ !startsWith(github.event_name, 'pull_request') }}`.
 - Dependabot jobs can't either. GitHub withholds secrets from them.
 - Any allowed job in any of your organization's repositories can replace these secrets. Review who can push to default branches and run workflows.
 - The action can't touch personal secrets or repository-scoped Team secrets.
