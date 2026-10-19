@@ -1,6 +1,6 @@
-name: "Blacksmith [code]smith Set Secrets"
+name: "Blacksmith Set Secrets"
 author: Blacksmith
-description: "Sets [code]smith and Proof sandbox env vars from a GitHub Actions job running on a Blacksmith runner"
+description: "Sets Blacksmith secrets from a GitHub Actions job running on a Blacksmith runner"
 branding:
   icon: key
   color: black
@@ -10,10 +10,10 @@ inputs:
     required: true
 outputs:
   created:
-    description: "JSON array of the env var names this run created"
+    description: "JSON array of the secret names this run created"
     value: ${{ steps.set.outputs.created }}
   updated:
-    description: "JSON array of the env var names whose value this run replaced"
+    description: "JSON array of the secret names whose value this run replaced"
     value: ${{ steps.set.outputs.updated }}
 runs:
   using: composite
@@ -111,16 +111,16 @@ runs:
 
         if [ "$status" != 200 ]; then
           message=$(jq -r '.message // empty' "$tmp/response" 2>/dev/null || true)
-          echo "::error::Could not set [code]smith env vars at $backend (HTTP $status): ${message:-unexpected response}"
+          echo "::error::Could not set Blacksmith secrets at $backend (HTTP $status): ${message:-unexpected response}"
           exit 1
         fi
 
         if ! created=$(jq -ec '.created | select(type == "array" and all(type == "string"))' "$tmp/response" 2>/dev/null) \
           || ! updated=$(jq -ec '.updated | select(type == "array" and all(type == "string"))' "$tmp/response" 2>/dev/null); then
-          echo "::error::Unexpected response from the [code]smith env API (HTTP $status)"
+          echo "::error::Unexpected response from the Blacksmith secrets API (HTTP $status)"
           exit 1
         fi
         echo "created=$created" >> "$GITHUB_OUTPUT"
         echo "updated=$updated" >> "$GITHUB_OUTPUT"
         summary='if length == 0 then "none" else join(", ") end'
-        echo "Set [code]smith env vars: created $(jq -r "$summary" <<< "$created"), updated $(jq -r "$summary" <<< "$updated")"
+        echo "Set Blacksmith secrets: created $(jq -r "$summary" <<< "$created"), updated $(jq -r "$summary" <<< "$updated")"
